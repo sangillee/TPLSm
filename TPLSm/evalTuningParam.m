@@ -3,33 +3,32 @@ classdef evalTuningParam
         type, threshval, compval, perfmat, maxperf, compval_max, threshval_max, compval_1se, threshval_1se;
     end
     methods
-        function ParamTunObj = evalTuningParam(TPLScvmdl,type,X,Y,compvec,threshvec)
+        function evalTuningParamStat = evalTuningParam(TPLScvmdl,type,X,Y,compvec,threshvec)
             
-            ParamTunObj.type = type; % specify tuning performance type
-            ParamTunObj.threshval = threshvec;
-            ParamTunObj.compval = compvec;
-            ParamTunObj.perfmat = nan(length(compvec),length(threshvec),TPLScvmdl.numfold);
+            evalTuningParamStat.type = type; % specify tuning performance type
+            evalTuningParamStat.threshval = threshvec;
+            evalTuningParamStat.compval = compvec;
+            evalTuningParamStat.perfmat = nan(length(compvec),length(threshvec),TPLScvmdl.numfold);
             
             for i = 1:TPLScvmdl.numfold
                 disp(['Fold #',num2str(i)])
                 test = TPLScvmdl.testfold == i;
                 for j = 1:length(threshvec)
                     predmat =  predict(TPLScvmdl.cvMdls{i},compvec,threshvec(j),X(test,:));
-                    ParamTunObj.perfmat(:,j,i) = util_perfmetric(predmat,Y(test),type);
+                    evalTuningParamStat.perfmat(:,j,i) = util_perfmetric(predmat,Y(test),type);
                 end
             end
-            avgperfmat = mean(ParamTunObj.perfmat,3);
+            avgperfmat = mean(evalTuningParamStat.perfmat,3);
             
             if ismember(type,{'MSE','RMSE','MAD'}) % for these metrics, lower value is better
-                ParamTunObj.maxperf = min(avgperfmat(:));
+                evalTuningParamStat.maxperf = min(avgperfmat(:));
             else
-                ParamTunObj.maxperf = max(avgperfmat(:));
+                evalTuningParamStat.maxperf = max(avgperfmat(:));
             end
             
-            [row,col] = find(avgperfmat==ParamTunObj.maxperf);
-            ParamTunObj.compval_max = compval(row);
-            ParamTunObj.threshval_max = threshval(col);
-            
+            [row,col] = find(avgperfmat==evalTuningParamStat.maxperf);
+            evalTuningParamStat.compval_max = compval(row);
+            evalTuningParamStat.threshval_max = threshval(col);
             
         end
         function plot(ParamTunObj)

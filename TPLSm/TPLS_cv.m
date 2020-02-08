@@ -6,8 +6,9 @@ classdef TPLS_cv %   Thresholded Partial Least Squares.
         function TPLScvmdl = TPLS_cv(X,Y,CVfold,NComp,W)
             if nargin<4, NComp = 50; end % default value
             if nargin<5, W = ones(size(Y)); end % by default all observation have equal weights
+            
             uniqfold = unique(CVfold);
-            TPLScvmdl.NComp = NComp;
+            TPLScvmdl.NComp = NComp; 
             TPLScvmdl.numfold = length(uniqfold);
             TPLScvmdl.testfold = nan(size(CVfold));
             TPLScvmdl.cvMdls = cell(TPLScvmdl.numfold,1);

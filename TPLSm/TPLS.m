@@ -59,6 +59,7 @@ classdef TPLS %   Thresholded Partial Least Squares. -Arthur Lee
         end
         
         function score = predict(TPLSmdl,compval,threshval,testX)
+            assert( length(threshval)==1, 'only one threshold value should be used');
             if threshval == 0
                 score = repmat(TPLSmdl.MtrainY,size(testX,1),length(compval));
             else
