@@ -1,9 +1,10 @@
 classdef evalTuningParam
     properties
-        type, threshval, compval, perfmat, perf_max, compval_max, threshval_max, SE, perf_1se, compval_1se, threshval_1se;
+        type, threshval, compval, perfmat, perf_best, compval_best, threshval_best, perf_1se, compval_1se, threshval_1se;
     end
     methods
         function ParamTunObj = evalTuningParam(TPLScvmdl,type,X,Y,compvec,threshvec)
+            threshvec = sort(threshvec); compvec = sort(compvec); % sorted from low to high
             % Perform CV prediction and performance measurement
             perfmat = nan(length(compvec),length(threshvec),TPLScvmdl.numfold);
             for i = 1:TPLScvmdl.numfold
@@ -14,7 +15,6 @@ classdef evalTuningParam
                     perfmat(:,j,i) = util_perfmetric(predmat,Y(test),type);
                 end
             end
-            avgperfmat = mean(perfmat,3);
             
             % prepare output object
             ParamTunObj.type = type; % specify tuning performance type
@@ -23,21 +23,22 @@ classdef evalTuningParam
             ParamTunObj.perfmat = perfmat;
             
             % find the point of maximum CV performance
+            avgperfmat = mean(perfmat,3); % average performance
             if ismember(type,{'MSE','RMSE','MAD'}) % for these metrics, lower value is better
-                ParamTunObj.perf_max = min(avgperfmat(:));
+                ParamTunObj.perf_best = min(avgperfmat(:));
             else
-                ParamTunObj.perf_max = max(avgperfmat(:));
+                ParamTunObj.perf_best = max(avgperfmat(:));
             end
-            [row,col] = find(avgperfmat==ParamTunObj.perf_max);
-            ParamTunObj.compval_max = compvec(row);
-            ParamTunObj.threshval_max = threshvec(col);
+            [row,col] = find(avgperfmat==ParamTunObj.perf_best);
+            ParamTunObj.compval_best = compvec(row); % number of components that yielded the best CV performance
+            ParamTunObj.threshval_best = threshvec(col); % threshold level that yielded the best CV performance
             
             % find the most parsimonious model (lower threshval) that is within 1 SE of maximum CV point
-            ParamTunObj.SE = std(squeeze(perfmat(row,col,:)))/sqrt(TPLScvmdl.numfold);
+            standardError = std(squeeze(perfmat(row,col,:)))/sqrt(TPLScvmdl.numfold);
             if ismember(type,{'MSE','RMSE','MAD'}) % for these metrics, lower value is better
-                candidates = avgperfmat(:,1:col)<(ParamTunObj.perf_max+ParamTunObj.SE); % finding points whose metric is lower than perf_max plus 1 SE
+                candidates = avgperfmat(:,1:col)<(ParamTunObj.perf_best+standardError); % finding points whose metric is lower than perf_max plus 1 SE
             else
-                candidates = avgperfmat(:,1:col)>(ParamTunObj.perf_max-ParamTunObj.SE); % finding points whose metric is higher than perf_max minus 1 SE
+                candidates = avgperfmat(:,1:col)>(ParamTunObj.perf_best-standardError); % finding points whose metric is higher than perf_max minus 1 SE
             end
             [row,col] = find(candidates,1,'first');
             ParamTunObj.perf_1se = avgperfmat(row,col);
@@ -51,7 +52,7 @@ classdef evalTuningParam
             ylabel('Number of PLS components'); xlabel('Proportion of Voxels Left'); zlabel(ParamTunObj.type)
             set(gca, 'XScale', 'log')
             hold on
-            h1 = plot3(ParamTunObj.threshval_max,ParamTunObj.compval_max,ParamTunObj.perf_max,'bo','MarkerSize',10,'MarkerFaceColor',[0.7,1,1]);
+            h1 = plot3(ParamTunObj.threshval_best,ParamTunObj.compval_best,ParamTunObj.perf_best,'bo','MarkerSize',10,'MarkerFaceColor',[0.7,1,1]);
             h2 = plot3(ParamTunObj.threshval_1se,ParamTunObj.compval_1se,ParamTunObj.perf_1se,'ro','MarkerSize',10,'MarkerFaceColor',[1,1,0.7]);
             legend([h1,h2],{'Max Perf','1SE Perf'})
         end

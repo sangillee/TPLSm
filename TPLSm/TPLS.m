@@ -19,7 +19,7 @@ classdef TPLS %   Thresholded Partial Least Squares. -Arthur Lee
             % allocate memories for output variables, interim variables, and calculate often used variables
             TPLSmdl.scoreCorr = nan(NComp,1,dt); TPLSmdl.betamap = nan(v,NComp,dt); TPLSmdl.threshmap = [0.5 .* ones(v,1,dt), nan(v,NComp-1,dt)];
             B = nan(NComp,1,dt); P = nan(n,NComp,dt); P2 = nan(n,NComp,dt); C = nan(v,NComp,dt); sumC2 = zeros(v,1,dt); r = Y; V = nan(v,NComp);
-            WYT = (W.*Y)'; WTY2 = W'*Y.^2; WT = W'; W2 = W.^2;
+            WYT = (W.*Y)'; WTY2 = W'*Y.^2; WT = W'; W2 = W.^2; % often-used variables
             
             % perform Arthur-modified SIMPLS algorithm
             Cov = (WYT*X)'; % weighted covariance
