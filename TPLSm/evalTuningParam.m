@@ -3,101 +3,74 @@ classdef evalTuningParam
         type, threshval, compval, perfmat, perf_best, compval_best, threshval_best, perf_1se, compval_1se, threshval_1se;
     end
     methods
-        function ParamTunObj = evalTuningParam(TPLScvmdl,type,X,Y,compvec,threshvec)
-            threshvec = sort(threshvec); compvec = sort(compvec); % sorted from low to high
+        function ParamTunObj = evalTuningParam(TPLScvmdl,type,X,Y,compvec,threshvec,subfold)
+            assert(ismember(type,{'Pearson','Spearman','AUC'}),'performance metric must be one of ''Pearson'',''Spearman'',or ''AUC''')
+            if nargin<7
+                subfold = TPLScvmdl.testfold; % if no subdivision provided, same as CV fold
+            end
+            
             % Perform CV prediction and performance measurement
+            threshvec = sort(threshvec); compvec = sort(compvec); % sorted from low to high
             perfmat = nan(length(compvec),length(threshvec),TPLScvmdl.numfold);
             for i = 1:TPLScvmdl.numfold
                 disp(['Fold #',num2str(i)])
-                test = TPLScvmdl.testfold == i;
+                testCVfold = TPLScvmdl.testfold == i;
+                Ytest = Y(testCVfold);
+                testsubfold = subfold(testCVfold);
+                uniqtestsubfold = unique(testsubfold);
                 for j = 1:length(threshvec)
-                    predmat =  predict(TPLScvmdl.cvMdls{i},compvec,threshvec(j),X(test,:));
-                    perfmat(:,j,i) = util_perfmetric(predmat,Y(test),type);
+                    predmat =  predict(TPLScvmdl.cvMdls{i},compvec,threshvec(j),X(testCVfold,:));
+                    smallperfmat = nan(length(compvec),length(uniqtestsubfold));
+                    for k = 1:length(uniqtestsubfold)
+                        subfoldsel = testsubfold == uniqtestsubfold(k);
+                        smallperfmat(:,k) = util_perfmetric(predmat(subfoldsel,:),Ytest(subfoldsel),type);
+                    end
+                    perfmat(:,j,i) = nanmean(smallperfmat,2);
                 end
             end
             
             % prepare output object
-            ParamTunObj.type = type; % specify tuning performance type
-            ParamTunObj.threshval = threshvec;
-            ParamTunObj.compval = compvec;
-            ParamTunObj.perfmat = perfmat;
+            ParamTunObj.type = type; ParamTunObj.threshval = threshvec; ParamTunObj.compval = compvec; ParamTunObj.perfmat = perfmat;
             
             % find the point of maximum CV performance
-            avgperfmat = mean(perfmat,3); % average performance
-            if ismember(type,{'MSE','RMSE','MAD'}) % for these metrics, lower value is better
-                ParamTunObj.perf_best = min(avgperfmat(:));
-            else
-                ParamTunObj.perf_best = max(avgperfmat(:));
-            end
-            [row,col] = find(avgperfmat==ParamTunObj.perf_best);
-            ParamTunObj.compval_best = compvec(row); % number of components that yielded the best CV performance
-            ParamTunObj.threshval_best = threshvec(col); % threshold level that yielded the best CV performance
-            
-            % find the most parsimonious model (lower threshval) that is within 1 SE of maximum CV point
-            standardError = std(squeeze(perfmat(row,col,:)))/sqrt(TPLScvmdl.numfold);
-            if ismember(type,{'MSE','RMSE','MAD'}) % for these metrics, lower value is better
-                candidates = avgperfmat(:,1:col)<(ParamTunObj.perf_best+standardError); % finding points whose metric is lower than perf_max plus 1 SE
-            else
-                candidates = avgperfmat(:,1:col)>(ParamTunObj.perf_best-standardError); % finding points whose metric is higher than perf_max minus 1 SE
-            end
-            [row,col] = find(candidates,1,'first');
-            ParamTunObj.perf_1se = avgperfmat(row,col);
-            ParamTunObj.compval_1se = compvec(row);
-            ParamTunObj.threshval_1se = threshvec(col);
+            [ParamTunObj.perf_best,row_best,col_best,ParamTunObj.perf_1se,row_1se,col_1se] = findBestPerf(perfmat);
+            ParamTunObj.compval_best = compvec(row_best); ParamTunObj.threshval_best = threshvec(col_best);
+            ParamTunObj.compval_1se = compvec(row_1se); ParamTunObj.threshval_1se = threshvec(col_1se);
         end
         function plot(ParamTunObj)
             figure
+            meansurf = nanmean(ParamTunObj.perfmat,3);
             [X,Y] = meshgrid(ParamTunObj.threshval,ParamTunObj.compval);
-            surf(X,Y,mean(ParamTunObj.perfmat,3),'EdgeColor',[.5,.5,.5],'FaceAlpha',0.5,'FaceColor','interp')
+            surf(X,Y,meansurf,'EdgeColor',[.5,.5,.5],'FaceAlpha',0.5,'FaceColor','interp')
             ylabel('Number of PLS components'); xlabel('Proportion of Voxels Left'); zlabel(ParamTunObj.type)
-            set(gca, 'XScale', 'log')
             hold on
-            h1 = plot3(ParamTunObj.threshval_best,ParamTunObj.compval_best,ParamTunObj.perf_best,'bo','MarkerSize',10,'MarkerFaceColor',[0.7,1,1]);
-            h2 = plot3(ParamTunObj.threshval_1se,ParamTunObj.compval_1se,ParamTunObj.perf_1se,'ro','MarkerSize',10,'MarkerFaceColor',[1,1,0.7]);
-            legend([h1,h2],{'Max Perf','1SE Perf'})
+            [maxroute,ind] = max(mean(ParamTunObj.perfmat,3)); % finding the best map at each threshold point
+            h0 = plot3(ParamTunObj.threshval,ParamTunObj.compval(ind),maxroute,'o-','MarkerSize',5,'MarkerFaceColor',[0.3,0.3,0.3]);
+            [maxroute,ind] = max(mean(ParamTunObj.perfmat,3),[],2); % finding the best map at each component
+            h1 = plot3(ParamTunObj.threshval(ind),ParamTunObj.compval,maxroute,'o-','MarkerSize',5,'MarkerFaceColor',[0.7,0.7,0.7]);
+            h2 = plot3(ParamTunObj.threshval_best,ParamTunObj.compval_best-0.1,ParamTunObj.perf_best,'bo','MarkerSize',10,'MarkerFaceColor',[0.7,1,1]);
+            h3 = plot3(ParamTunObj.threshval_1se,ParamTunObj.compval_1se+0.1,ParamTunObj.perf_1se,'ro','MarkerSize',10,'MarkerFaceColor',[1,1,0.7]);
+            legend([h0,h1,h2,h3],{'best at threshold','best at component','Max Perf','1SE Perf'})
         end
     end
 end
 
+function [perf_best,row_best,col_best,perf_1se,row_1se,col_1se] = findBestPerf(perfmat)
+avgperfmat = nanmean(perfmat,3); perf_best = max(avgperfmat(:));
+[row_best,col_best] = find(avgperfmat==perf_best,1,'first');
+standardError = nanstd(squeeze(perfmat(row_best,col_best,:)))/size(perfmat,3); % finding the standard error of the best point
+candidates = avgperfmat(:,1:col_best)>(perf_best-standardError); % finding points whose metric is higher than perf_max minus 1 SE
+[row_1se,col_1se] = find(candidates,1,'first');
+perf_1se = avgperfmat(row_1se,col_1se);
+end
+
 function Perf = util_perfmetric(predmat,testY,type)
-switch type
-    case 'AUC'
-        predmat(predmat>1) = 1; predmat(predmat<0) = 0; % capping
-        Perf = localAUC(testY==1,predmat); % AUC
-    case 'BACC'
-        Perf = localbACC(testY==1,predmat>0.5); % balanced Accuracy
-    case 'ACC'
-        Perf = mean(bsxfun(@eq,(testY==1),(predmat>0.5))); % accuracy
-    case 'PEARSON'
-        Perf = corr(testY,predmat);
-    case 'SPEARMAN'
-        Perf = corr(testY,predmat,'type','Spearman');
-    case 'MSE'
-        resid = bsxfun(@minus,testY,predmat);
-        Perf = mean(resid.^2);
-    case 'RMSE'
-        resid = bsxfun(@minus,testY,predmat);
-        Perf = sqrt(mean(resid.^2));
-    case 'MAD'
-        resid = bsxfun(@minus,testY,predmat);
-        Perf = mean(abs(resid));
-    otherwise
-        error('unknown performance measure type')
+if strcmp(type,'AUC')
+    n = size(truth,1); num_pos = sum(testY==1); num_neg = n - num_pos; auc = nan(1,size(predmat,2));
+    if (num_pos>0 && num_pos < n)
+        ranks = tiedrank(predmat); Perf = ( sum( ranks(testY==1,:) ) - num_pos * (num_pos+1)/2) / ( num_pos * num_neg);
+    end
+else
+    Perf = corr(testY,predmat,'type',type);
 end
-end
-
-function auc = localAUC(truth,score) % area under receiver operating characteristic curve
-n = size(truth,1); num_pos = sum(truth); num_neg = n - num_pos;
-auc = nan(1,size(score,2));
-if (num_pos>0 && num_pos < n)
-    ranks = tiedrank(score);
-    auc = ( sum( ranks(truth,:) ) - num_pos * (num_pos+1)/2) / ( num_pos * num_neg);
-end
-end
-
-function acc = localbACC(truth,prediction) % balanced Accuracy
-truth = repmat(truth,1,size(prediction,2));
-acc1 = sum(prediction==1 & truth==1)./sum(truth==1);
-acc2 = sum(prediction==0 & truth==0)./sum(truth==0);
-acc = (acc1+acc2)/2;
 end
