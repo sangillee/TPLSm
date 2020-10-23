@@ -66,7 +66,7 @@ end
 
 function Perf = util_perfmetric(predmat,testY,type)
 if strcmp(type,'AUC')
-    n = size(truth,1); num_pos = sum(testY==1); num_neg = n - num_pos; auc = nan(1,size(predmat,2));
+    n = size(testY,1); num_pos = sum(testY==1); num_neg = n - num_pos;
     if (num_pos>0 && num_pos < n)
         ranks = tiedrank(predmat); Perf = ( sum( ranks(testY==1,:) ) - num_pos * (num_pos+1)/2) / ( num_pos * num_neg);
     end
