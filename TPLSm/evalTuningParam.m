@@ -45,12 +45,12 @@ classdef evalTuningParam
             ylabel('Number of PLS components'); xlabel('Proportion of Voxels Left'); zlabel(ParamTunObj.type)
             hold on
             [maxroute,ind] = max(mean(ParamTunObj.perfmat,3)); % finding the best map at each threshold point
-            h0 = plot3(ParamTunObj.threshval,ParamTunObj.compval(ind),maxroute,'o-','MarkerSize',5,'MarkerFaceColor',[0.3,0.3,0.3]);
-            [maxroute,ind] = max(mean(ParamTunObj.perfmat,3),[],2); % finding the best map at each component
-            h1 = plot3(ParamTunObj.threshval(ind),ParamTunObj.compval,maxroute,'o-','MarkerSize',5,'MarkerFaceColor',[0.7,0.7,0.7]);
+            h1 = plot3(ParamTunObj.threshval,ParamTunObj.compval(ind),maxroute,'o-','MarkerSize',5,'MarkerFaceColor',[0.3,0.3,0.3]);
+%             [maxroute,ind] = max(mean(ParamTunObj.perfmat,3),[],2); % finding the best map at each component
+%             h1 = plot3(ParamTunObj.threshval(ind),ParamTunObj.compval,maxroute,'o-','MarkerSize',5,'MarkerFaceColor',[0.7,0.7,0.7]);
             h2 = plot3(ParamTunObj.threshval_best,ParamTunObj.compval_best-0.1,ParamTunObj.perf_best,'bo','MarkerSize',10,'MarkerFaceColor',[0.7,1,1]);
             h3 = plot3(ParamTunObj.threshval_1se,ParamTunObj.compval_1se+0.1,ParamTunObj.perf_1se,'ro','MarkerSize',10,'MarkerFaceColor',[1,1,0.7]);
-            legend([h0,h1,h2,h3],{'best at threshold','best at component','Max Perf','1SE Perf'})
+            legend([h1,h2,h3],{'best at threshold','Max Perf','1SE Perf'})
         end
     end
 end
@@ -66,9 +66,20 @@ end
 
 function Perf = util_perfmetric(predmat,testY,type)
 if strcmp(type,'AUC')
+    uniqueY = unique(testY);
+    if length(uniqueY) > 2
+        uniqueY
+        error('non-binary Y detected')
+    elseif length(uniqueY) == 1
+        testY = ones(size(testY));
+    else
+        testY = zscore(testY)>0; % binarizing
+    end
     n = size(testY,1); num_pos = sum(testY==1); num_neg = n - num_pos;
     if (num_pos>0 && num_pos < n)
         ranks = tiedrank(predmat); Perf = ( sum( ranks(testY==1,:) ) - num_pos * (num_pos+1)/2) / ( num_pos * num_neg);
+    else
+        Perf = 0.5 .* ones(1,size(predmat,2));
     end
 else
     Perf = corr(testY,predmat,'type',type);
