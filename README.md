@@ -1,5 +1,7 @@
 # TPLSm 1.0.1
 
+Updated March 5th 2021
+
 MATLAB package for performing Thresholded Partial Least Squares (T-PLS).  
 T-PLS combines partial least squares with back-projection to fit a large scale regularized linear model.  
 Due to its mostly analytical solutions and 'fit once tune later' approach to cross-validation, it can fit cross-validated  
