@@ -1,33 +1,35 @@
-classdef TPLS %   Thresholded Partial Least Squares. -Arthur Lee
+classdef TPLS
     properties
-        NComp, W, MtrainX, MtrainY, scoreCorr, pctVar, betamap, threshmap
+        NComp, MX, MY, scoreCorr, pctVar, betamap, threshmap
     end
     methods
-        function TPLSmdl = TPLS(X,Y,NComp,W,nmc) % NComp : maximum number of partial least squares components you want. W: n-by-1 observation weight vector.
-            if nargin<3, NComp = 50; end % default value
-            if nargin<4, W = ones(size(Y)); end % if weight is not provided, every observation has equal weight
-            if nargin<5, nmc = 0; end % this is a special switch to skip mean centering
-            assert( all(W>0) ,'weights should be positive'); W = W./sum(W); % normalize weight sum to 1
+        function TPLSmdl = TPLS(X,Y,NComp,W,nmc)
+            % Constructor method for fitting a T-PLS model with given data X and Y.
+            %   'X'    : Numerical matrix of predictors. Typically single-trial betas where each column is a voxel and row is observation
+            %   'Y'    : Variable to predict. Binary 0 and 1 in case of classification, continuous variable in case of regression
+            %   'NComp': (Optional) Number of PLS components to compute. Default is 25.
+            %   'W'    : (Optional) Observation weights. Optional input. By default, all observations have equal weight.
+            %   'nmc'  : (Optional) 'no mean centering'. Default is 0. If 1, T-PLS will skip mean-centering.
+            %            This option is only provided in case you already mean-centered the data and want to save some memory usage.
             
-            % data dimensions and data type specification
-            dt = superiorfloat(X,Y); [n,v] = size(X); if ~strcmp(superiorfloat(W),dt); W = cast(W,dt); end
+            % input checking
+            if nargin<3, NComp = 25; end
+            if nargin<4, W = ones(size(Y)); end
+            if nargin<5, nmc = 0; end
+            [n,v,W] = TPLSinputchecking(X,Y,NComp,W,nmc);
             
             % Mean-Center variables as needed by SIMPLS algorithm
-            TPLSmdl.NComp = NComp; TPLSmdl.W = W;
-            TPLSmdl.MtrainX = W'*X; TPLSmdl.MtrainY = W'*Y; % calculating weighted means of X and Y
-            if nmc == 0 % if no switch is given to skip mean centering
-                X = bsxfun(@minus, X, TPLSmdl.MtrainX); Y = Y - TPLSmdl.MtrainY; % subtract means
-            else
-                disp('mean centering disabled')
-                if mean(abs(TPLSmdl.MtrainX)) > 1e-04
-                    warning('X does not seem to be mean-centered. Results may not be valid')
-                end
+            TPLSmdl.NComp = NComp; TPLSmdl.MX = W'*X; TPLSmdl.MY = W'*Y; % calculating weighted means of X and Y
+            if nmc == 0 % do mean centering
+                X = bsxfun(@minus, X, TPLSmdl.MX); Y = Y - TPLSmdl.MY; % subtract means
+            elseif any(abs(TPLSmdl.MX) > 1e-04)
+                warning('X does not seem to be mean-centered. Results may not be valid')
             end
             
-            % allocate memories for output variables, interim variables, and calculate often used variables
-            TPLSmdl.scoreCorr = nan(NComp,1,dt); TPLSmdl.betamap = nan(v,NComp,dt); TPLSmdl.threshmap = [0.5 .* ones(v,1,dt), nan(v,NComp-1,dt)];
-            B = nan(NComp,1,dt); P2 = nan(n,NComp,dt); C = nan(v,NComp,dt); sumC2 = zeros(v,1,dt); r = Y; V = nan(v,NComp);
-            WYT = (W.*Y)'; WTY2 = W'*Y.^2; WT = W'; W2 = W.^2; % often-used variables
+            % allocate memories
+            TPLSmdl.scoreCorr = nan(NComp,1); TPLSmdl.betamap = nan(v,NComp); TPLSmdl.threshmap = [0.5 .* ones(v,1), nan(v,NComp-1)]; % output variables
+            B = nan(NComp,1); P2 = nan(n,NComp); C = nan(v,NComp); sumC2 = zeros(v,1); r = Y; V = nan(v,NComp); % interim variables
+            WYT = (W.*Y)'; WTY2 = W'*Y.^2; WT = W'; W2 = W.^2; % often-used variables in calculation
             
             % perform Arthur-modified SIMPLS algorithm
             Cov = (WYT*X)'; % weighted covariance
@@ -57,23 +59,74 @@ classdef TPLS %   Thresholded Partial Least Squares. -Arthur Lee
         end
         
         function [betamap,bias] = makePredictor(TPLSmdl,compval,threshval)
-            % extract betamap from a TPLS model at a given number of components and at given threshold value
-            assert( length(threshval)==1, 'only one threshold value should be used');
-            betamap = TPLSmdl.betamap(:,compval);
-            if threshval < 1
-                betamap = betamap.*(TPLSmdl.threshmap(:,compval)<=threshval); % finalized predictor map at select components
+            % Method for extracting the T-PLS predictor at a given compval and threshval
+            %   'betamap'  : T-PLS predictor coefficient
+            %   'bias'     : Intercept for T-PLS model.
+            %   'TPLSmdl'  : Object created by TPLS constructor function
+            %   'compval'  : Vector of number of components to use in final predictor
+            %                (e.g., [3,5] will give you two betamaps, one with 3 components and one with 5 components
+            %   'threshval': Single number of thresholding value to use in final predictor.
+            %                (e.g., 0.1 will yield betamap where only 10% of coefficients will be non-zero)
+            assert(all(isnumeric(compval)) && length(compval)==length(compval(:)),'compval should be a numerical vector');
+            assert( max(compval)<=TPLSmdl.NComp, 'compval should only include values small than number of components used for TPLS model');
+            assert(all(isnumeric(threshval)) && length(threshval)==1 && 0<=threshval && threshval<=1,'threshval should be a single number between 0 and 1');
+            if threshval == 0
+                betamap = TPLSmdl.betamap(:,compval) .*0;
+            else
+                betamap = TPLSmdl.betamap(:,compval) .* (TPLSmdl.threshmap(:,compval)<=threshval); % finalized predictor map at select components
             end
-            bias = TPLSmdl.MtrainY-TPLSmdl.MtrainX*betamap; % post-fitting of bias
+            bias = TPLSmdl.MY-TPLSmdl.MX*betamap; % post-fitting of bias
         end
         
         function score = predict(TPLSmdl,compval,threshval,testX)
-            assert( length(threshval)==1, 'only one threshold value should be used');
-            if threshval == 0
-                score = repmat(TPLSmdl.MtrainY,size(testX,1),length(compval));
-            else
-                [threshbetamap,bias] = makePredictor(TPLSmdl,compval,threshval);
-                score = bsxfun(@plus,bias,testX*threshbetamap);
-            end
+            % Method for making predictions on a testing dataset testX
+            %   'score'    : Prediction scores on a testing dataset
+            %   'TPLSmdl'  : Object created by TPLS constructor function
+            %   'compval'  : Vector of number of components to use in final predictor
+            %   'threshval': Single number of thresholding value to use in final predictor.
+            %   'testX'    : Data to be predicted
+            assert(all(isnumeric(testX)),'testX should be numerical matrix');
+            assert(~all(isnan(testX(:))),'NaN found in X');
+            [threshbetamap,bias] = makePredictor(TPLSmdl,compval,threshval);
+            score = bsxfun(@plus,bias,testX*threshbetamap);
         end
     end
+end
+
+% checking input parameters to TPLS to ensure smooth running
+function [n,v,W] = TPLSinputchecking(X,Y,NComp,W,nmc)
+% 1. type checking
+assert(all(isnumeric(X)),'X should be numerical matrix');
+assert(all(isnumeric(Y)),'Y should be numerical vector');
+assert(all(isnumeric(NComp)),'NComp should be numeric');
+assert(all(isnumeric(W)),'W should be numerical vector');
+assert(all(isnumeric(nmc)),'nmc should either be 0 or 1');
+
+% 2. size checking
+[n,v] = size(X);
+assert(v > 2,'X should have at least 3 columns');
+assert(n > 2,'X should have at least 3 observations');
+[nY,vY] = size(Y);
+assert(n==nY,'X and Y should have same number of rows');
+assert(vY==1,'Y should be a column vector');
+[nC,vC] = size(NComp);
+assert(nC==1 && vC == 1,'NComp should be a scalar number');
+[nW,vW] = size(W);
+assert(nW==nY,'W and Y should have same number of rows');
+assert(vW==1,'W should be a column vector');
+[nn,vn] = size(nmc);
+assert(nn==1 && vn == 1,'NComp should be a scalar number');
+
+% 3. nan checking
+assert(~any(isnan(X(:))),'NaN found in X');
+assert(~any(isnan(Y)),'NaN found in Y');
+assert(~isnan(NComp),'NComp is NaN');
+assert(~any(isnan(W)),'NaN found in W');
+assert(~isnan(nmc),'nmc is NaN');
+
+% 4. logic checking
+assert( floor(NComp)==NComp && ceil(NComp)==NComp,'NComp should be an integer')
+assert( all(W>0) ,'weights should be non-negative');
+assert( nmc==1 || nmc==0 ,'nmc switch should be either 0 or 1');
+W = W./sum(W); % normalize weight sum to 1
 end
