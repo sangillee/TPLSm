@@ -2,8 +2,8 @@
 
 Updated March 5th 2021
 
-## General:
-Added examples.
+General:  
+Added examples.  
 Added citation in readme.
 Added input variable checking for safety.
 ## TPLS:
