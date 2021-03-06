@@ -3,7 +3,7 @@ classdef evalTuningParam
         type, threshval, compval, perfmat, perf_best, compval_best, threshval_best, perf_1se, compval_1se, threshval_1se, best_at_threshold;
     end
     methods
-        function cvstats = evalTuningParam(cvmdl,type,X,Y,compvec,threshvec,subfold)
+        function ParamTunObj = evalTuningParam(cvmdl,type,X,Y,compvec,threshvec,subfold)
             % Evaluating cross-validation performance of a TPLS_cv model at compvec and threshvec
             %   'cvmdl'     : A TPLS_cv object
             %   'type'      : CV performance metric type. One of Pearson, Spearman, AUC, ACC, negMSE, negRMSE.
@@ -16,11 +16,11 @@ classdef evalTuningParam
             % input checking
             if nargin<7, subfold = ones(size(Y)); end
             assert(isa(cvmdl,'TPLS_cv'),'First input should be a TPLS_cv model object');
-            assert(ismember(type,{'Pearson','Spearman','AUC','ACC','negMSE','negRMSE'}),'Unknown performance metric'); cvstats.type = type;
+            assert(ismember(type,{'Pearson','Spearman','AUC','ACC','negMSE','negRMSE'}),'Unknown performance metric')
             TPLSinputchecker(X,'X','mat',[],[],1)
             TPLSinputchecker(Y,'Y','colvec',[],[],1)
-            TPLSinputchecker(compvec,'compvec','vec',cvmdl.NComp,1,0,1); compvec = sort(compvec(:)); cvstats.compval = compvec;
-            TPLSinputchecker(threshvec,'threshvec','vec',1,0); threshvec = sort(threshvec(:)); cvstats.threshval = threshvec;
+            TPLSinputchecker(compvec,'compvec','vec',cvmdl.NComp,1,0,1); compvec = sort(compvec(:)); 
+            TPLSinputchecker(threshvec,'threshvec','vec',1,0); threshvec = sort(threshvec(:));
             TPLSinputchecker(subfold,'subfold','vec')
             
             % Perform CV prediction and performance measurement
@@ -41,26 +41,30 @@ classdef evalTuningParam
                     perfmat(:,j,i) = nanmean(smallperfmat,2);
                 end
             end
-            cvstats.perfmat = perfmat; avgperfmat = nanmean(perfmat,3); % mean performance
-            cvstats.perf_best = max(avgperfmat(:)); % best mean performance
-            [row_best,col_best] = find(avgperfmat==cvstats.perf_best,1,'first'); % coordinates of best point
-            cvstats.compval_best = compvec(row_best); cvstats.threshval_best = threshvec(col_best); % component and threshold of best point
-            SE = nanstd(perfmat(row_best,col_best,:),[],3)./sqrt(cvmdl.numfold); % standard error of best point
-            [row_1se,col_1se] = find(avgperfmat(:,1:col_best)>(cvstats.perf_best-SE),1,'first'); % coordinates of 1SE point
-            cvstats.perf_1se = avgperfmat(row_1se,col_1se); % performance of 1SE point
-            cvstats.compval_1se = compvec(row_1se); cvstats.threshval_1se = threshvec(col_1se);
+            
+            % prepare output object
+            ParamTunObj.type = type; ParamTunObj.threshval = threshvec; ParamTunObj.compval = compvec; ParamTunObj.perfmat = perfmat;
+            
+            % find the point of maximum CV performance
+            avgperfmat = nanmean(perfmat,3); SE = nanstd(perfmat,[],3)./sqrt(cvmdl.numfold);
+            ParamTunObj.perf_best = max(avgperfmat(:));
+            [row_best,col_best] = find(avgperfmat==ParamTunObj.perf_best,1,'first'); % coordinates of best point
+            ParamTunObj.compval_best = compvec(row_best); ParamTunObj.threshval_best = threshvec(col_best);
+            [row_1se,col_1se] = find(avgperfmat(:,1:col_best)>(perf_best-SE(row_best,col_best)),1,'first'); % coordinates of 1SE point
+            ParamTunObj.perf_1se = avgperfmat(row_1se,col_1se); % performance of 1SE point
+            ParamTunObj.compval_1se = compvec(row_1se); ParamTunObj.threshval_1se = threshvec(col_1se);
             [maxroute,maxrouteind] = max(avgperfmat);
-            cvstats.best_at_threshold = [maxroute(:),threshvec,compvec(maxrouteind)];
+            ParamTunObj.best_at_threshold = [maxroute(:),threshvec,compvec(maxrouteind)];
         end
-        function plot(cvstats)
-            meansurf = nanmean(cvstats.perfmat,3);
-            [X,Y] = meshgrid(cvstats.threshval,cvstats.compval);
+        function plot(ParamTunObj)
+            meansurf = nanmean(ParamTunObj.perfmat,3);
+            [X,Y] = meshgrid(ParamTunObj.threshval,ParamTunObj.compval);
             surf(X,Y,meansurf,'EdgeColor',[.5,.5,.5],'FaceAlpha',0.5,'FaceColor','interp')
-            ylabel('Number of PLS components'); xlabel('Proportion of Voxels Left'); zlabel(cvstats.type)
+            ylabel('Number of PLS components'); xlabel('Proportion of Voxels Left'); zlabel(ParamTunObj.type)
             hold on
-            h1 = plot3(cvstats.threshval,cvstats.best_at_threshold(:,3),cvstats.best_at_threshold(:,1),'o-','MarkerSize',5,'MarkerFaceColor',[0.3,0.3,0.3]);
-            h2 = plot3(cvstats.threshval_best,cvstats.compval_best-0.1,cvstats.perf_best,'bo','MarkerSize',10,'MarkerFaceColor',[0.7,1,1]);
-            h3 = plot3(cvstats.threshval_1se,cvstats.compval_1se+0.1,cvstats.perf_1se,'ro','MarkerSize',10,'MarkerFaceColor',[1,1,0.7]);
+            h1 = plot3(ParamTunObj.threshval,ParamTunObj.best_at_threshold(:,3),ParamTunObj.best_at_threshold(:,1),'o-','MarkerSize',5,'MarkerFaceColor',[0.3,0.3,0.3]);
+            h2 = plot3(ParamTunObj.threshval_best,ParamTunObj.compval_best-0.1,ParamTunObj.perf_best,'bo','MarkerSize',10,'MarkerFaceColor',[0.7,1,1]);
+            h3 = plot3(ParamTunObj.threshval_1se,ParamTunObj.compval_1se+0.1,ParamTunObj.perf_1se,'ro','MarkerSize',10,'MarkerFaceColor',[1,1,0.7]);
             legend([h1,h2,h3],{'best at threshold','Max Perf','1SE Perf'})
         end
     end

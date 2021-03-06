@@ -16,20 +16,14 @@ classdef TPLS
             if nargin<3, NComp = 25; end
             if nargin<4, W = ones(size(Y)); end
             if nargin<5, nmc = 0; end
-            TPLSinputchecker(X,'X','mat',[],[],1); [n,v] = size(X);
-            TPLSinputchecker(Y,'Y','colvec',[],[],1)
-            TPLSinputchecker(NComp,'NComp','scalar',[],[],0,1)
-            TPLSinputchecker(W,'W','colvec',Inf,0)
-            TPLSinputchecker(nmc,'nmc','scalar')
-            assert(n==length(Y) && n==length(W),'X, Y, and W should have equal number of rows')
-            W = W./sum(W); % normalize weight sum to 1
+            [n,v,W] = TPLSinputchecking(X,Y,NComp,W,nmc);
             
             % Mean-Center variables as needed by SIMPLS algorithm
             TPLSmdl.NComp = NComp; TPLSmdl.MX = W'*X; TPLSmdl.MY = W'*Y; % calculating weighted means of X and Y
             if nmc == 0 % do mean centering
                 X = bsxfun(@minus, X, TPLSmdl.MX); Y = Y - TPLSmdl.MY; % subtract means
             elseif any(abs(TPLSmdl.MX) > 1e-04)
-                warning('Skipped mean centering, but X does not seem to be mean-centered. Results may be invalid')
+                warning('X does not seem to be mean-centered. Results may not be valid')
             end
             
             % allocate memories
@@ -80,8 +74,9 @@ classdef TPLS
             %                (e.g., [3,5] will give you two betamaps, one with 3 components and one with 5 components
             %   'threshval': Single number of thresholding value to use in final predictor.
             %                (e.g., 0.1 will yield betamap where only 10% of coefficients will be non-zero)
-            TPLSinputchecker(compval,'compval','vec',TPLSmdl.NComp,1,0,1)
-            TPLSinputchecker(threshval,'threshval','scalar',1,0)
+            assert(all(isnumeric(compval)) && length(compval)==length(compval(:)),'compval should be a numerical vector');
+            assert( max(compval)<=TPLSmdl.NComp, 'compval should only include values small than number of components used for TPLS model');
+            assert(all(isnumeric(threshval)) && length(threshval)==1 && 0<=threshval && threshval<=1,'threshval should be a single number between 0 and 1');
             if threshval == 0
                 betamap = TPLSmdl.betamap(:,compval) .*0;
             else
@@ -97,9 +92,27 @@ classdef TPLS
             %   'compval'  : Vector of number of components to use in final predictor
             %   'threshval': Single number of thresholding value to use in final predictor.
             %   'testX'    : Data to be predicted
-            TPLSinputchecker(testX,'testX')
+            assert(all(isnumeric(testX)),'testX should be numerical matrix');
+            assert(~all(isnan(testX(:))),'NaN found in X');
             [threshbetamap,bias] = makePredictor(TPLSmdl,compval,threshval);
             score = bsxfun(@plus,bias,testX*threshbetamap);
         end
     end
+end
+
+% checking input parameters to TPLS to ensure smooth running
+function [n,v,W] = TPLSinputchecking(X,Y,NComp,W,nmc)
+TPLSinputchecker(X,'X','mat',[],[],1)
+TPLSinputchecker(Y,'Y','colvec',[],[],1)
+TPLSinputchecker(NComp,'NComp','scalar')
+TPLSinputchecker(W,'W','colvec',Inf,0)
+TPLSinputchecker(nmc,'nmc','scalar')
+
+[n,v] = size(X);
+assert(n==length(Y) && n==length(W),'X, Y, and W should have equal number of rows')
+
+% 4. logic checking
+assert( floor(NComp)==NComp && ceil(NComp)==NComp,'NComp should be an integer')
+assert( nmc==1 || nmc==0 ,'nmc switch should be either 0 or 1');
+W = W./sum(W); % normalize weight sum to 1
 end

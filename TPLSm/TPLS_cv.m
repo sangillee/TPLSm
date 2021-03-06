@@ -19,9 +19,17 @@ classdef TPLS_cv %   Thresholded Partial Least Squares.
             
             % input checking
             if nargin<6, nmc = 0; end
-            if nargin<5, W = ones(size(Y)); end % by default all observation have equal weights
-            if nargin<4, NComp = 25; end % default value
-            [TPLScvmdl.CVfold,TPLScvmdl.numfold,W] = TPLScvinputchecking(X,Y,CVfold,NComp,W,nmc);
+            if nargin<5, W = ones(size(Y)); end
+            if nargin<4, NComp = 25; end
+            TPLSinputchecker(X,'X','mat',[],[],1)
+            TPLSinputchecker(Y,'Y','colvec',[],[],1)
+            TPLSinputchecker(CVfold,'CVfold')
+            TPLSinputchecker(NComp,'NComp','scalar',[],1,0,1)
+            TPLSinputchecker(W,'W','colvec',Inf,0)
+            TPLSinputchecker(nmc,'nmc','scalar')
+            assert(size(X,1)==length(Y) && size(X,1)==size(CVfold,1) && size(X,1) == length(W),'X, Y, W, and CV fold should have same number of rows');
+            [TPLScvmdl.CVfold,TPLScvmdl.numfold] = prepCVfold(CVfold); % convert CVfold into matrix form, if not already
+            if size(W,2) == 1, W = repmat(W,1,numfold); end % convert into matrix form, if not already
             
             TPLScvmdl.NComp = NComp;
             TPLScvmdl.cvMdls = cell(TPLScvmdl.numfold,1);
@@ -34,42 +42,16 @@ classdef TPLS_cv %   Thresholded Partial Least Squares.
     end
 end
 
-% checking input parameters to TPLS_cv to ensure smooth running
-function [CVfold,numfold,W] = TPLScvinputchecking(X,Y,CVfold,NComp,W,nmc)
-% 1. type checking
-assert(all(isnumeric(X))&&all(isnumeric(Y))&&all(isnumeric(CVfold))&&all(isnumeric(NComp))&&all(isnumeric(W))&&all(isnumeric(nmc)),'All inputs should be numeric');
-
-% 2. size checking
-[n,v] = size(X);
-assert(v > 2,'X should have at least 3 columns');
-assert(n > 2,'X should have at least 3 observations');
-[nY,vY] = size(Y);
-assert(n==nY,'X and Y should have same number of rows');
-assert(vY==1,'Y should be a column vector');
-nCVfold = size(CVfold,1);
-assert(n==nCVfold,'X and CVfold should have same number of rows');
-nW = size(W,1);
-assert(nW==nY,'W and Y should have same number of rows');
-
-% 3. logic checking
-[CVfold,numfold] = prepCVfold(CVfold); % convert CVfold into matrix form, if not already
-if size(W,2) == 1 % vector form weight
-    W = repmat(W,1,numfold);
-end
-end
-
 % prepare CV fold data into a matrix form, which is more generalizable
 function [CVfold,nfold] = prepCVfold(inCVfold)
 if size(inCVfold,2) == 1 % vector
-    uniqfold = unique(inCVfold);
-    nfold = length(uniqfold);
+    uniqfold = unique(inCVfold); nfold = length(uniqfold);
     CVfold = zeros(length(inCVfold),nfold);
     for i = 1:nfold
         CVfold(:,i) = 1.*(inCVfold == uniqfold(i));
     end
 elseif size(inCVfold,2) > 1 % matrix
-    nfold = size(inCVfold,2);
-    CVfold = inCVfold;
+    nfold = size(inCVfold,2); CVfold = inCVfold;
     if any(CVfold(:)~=0 & CVfold(:)~=1)
         error('Non-binary element is matrix form CVfold. Perhaps you meant to use vector form?')
     end

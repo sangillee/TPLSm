@@ -1,3 +1,9 @@
+# TPLSm 1.0.2
+
+Updated March 6th 2021
+
+Separated input checking function into a separate file for generalized treatment.
+
 # TPLSm 1.0.1
 
 Updated March 5th 2021
