@@ -37,12 +37,7 @@ end
 % checking input parameters to TPLS_cv to ensure smooth running
 function [CVfold,numfold,W] = TPLScvinputchecking(X,Y,CVfold,NComp,W,nmc)
 % 1. type checking
-assert(all(isnumeric(X)),'X should be numerical matrix');
-assert(all(isnumeric(Y)),'Y should be numerical vector');
-assert(all(isnumeric(CVfold)),'CVfold should be numeric');
-assert(all(isnumeric(NComp)),'NComp should be numeric');
-assert(all(isnumeric(W)),'W should be numerical vector');
-assert(all(isnumeric(nmc)),'nmc should either be 0 or 1');
+assert(all(isnumeric(X))&&all(isnumeric(Y))&&all(isnumeric(CVfold))&&all(isnumeric(NComp))&&all(isnumeric(W))&&all(isnumeric(nmc)),'All inputs should be numeric');
 
 % 2. size checking
 [n,v] = size(X);
@@ -53,23 +48,10 @@ assert(n==nY,'X and Y should have same number of rows');
 assert(vY==1,'Y should be a column vector');
 nCVfold = size(CVfold,1);
 assert(n==nCVfold,'X and CVfold should have same number of rows');
-[nC,vC] = size(NComp);
-assert(nC==1 && vC == 1,'NComp should be a scalar number');
 nW = size(W,1);
 assert(nW==nY,'W and Y should have same number of rows');
-[nn,vn] = size(nmc);
-assert(nn==1 && vn == 1,'NComp should be a scalar number');
 
-% 3. nan checking
-assert(~any(isnan(X(:))),'NaN found in X');
-assert(~any(isnan(Y)),'NaN found in Y');
-assert(~any(isnan(CVfold(:))),'NaN found in CVfold');
-assert(~isnan(NComp),'NComp is NaN');
-assert(~isnan(nmc),'nmc is NaN');
-
-% 4. logic checking
-assert( floor(NComp)==NComp && ceil(NComp)==NComp,'NComp should be an integer')
-assert( nmc==1 || nmc==0 ,'nmc switch should be either 0 or 1');
+% 3. logic checking
 [CVfold,numfold] = prepCVfold(CVfold); % convert CVfold into matrix form, if not already
 if size(W,2) == 1 % vector form weight
     W = repmat(W,1,numfold);

@@ -10,6 +10,7 @@ Added input variable checking for safety.
 TPLS:  
 Removed support for single floating point precision operation in TPLS.  
 Disabled saving of weights in TPLS model as it doesn't seem to do anything.  
+Added loop abortion based on norm of covariance. Will stop from generating meaningless components based on noise.
 
 TPLS_cv:  
 Added support for more sophisticated cross-validation support in TPLS_cv.  

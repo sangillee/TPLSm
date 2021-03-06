@@ -27,35 +27,42 @@ classdef TPLS
             end
             
             % allocate memories
-            TPLSmdl.scoreCorr = nan(NComp,1); TPLSmdl.betamap = nan(v,NComp); TPLSmdl.threshmap = [0.5 .* ones(v,1), nan(v,NComp-1)]; % output variables
+            TPLSmdl.pctVar = nan(NComp,1); TPLSmdl.scoreCorr = nan(NComp,1); % percent of variance of Y each component explains, weighted correlation between Y and current component
+            TPLSmdl.betamap = zeros(v,NComp); TPLSmdl.threshmap = 0.5.*ones(v,NComp); % output variables
             B = nan(NComp,1); P2 = nan(n,NComp); C = nan(v,NComp); sumC2 = zeros(v,1); r = Y; V = nan(v,NComp); % interim variables
             WYT = (W.*Y)'; WTY2 = W'*Y.^2; WT = W'; W2 = W.^2; % often-used variables in calculation
             
+            
             % perform Arthur-modified SIMPLS algorithm
-            Cov = (WYT*X)'; % weighted covariance
+            Cov = (WYT*X)'; normCov = norm(Cov); % weighted covariance
             for i = 1:NComp
                 disp(['Calculating Comp #',num2str(i)])
-                P = X*Cov; % this is the component, before normalization
-                norm_P = sqrt(WT*P.^2); % weighted standard deviation of component as normalization constant
-                P = P ./ norm_P; B(i) = (norm(Cov)^2)/norm_P; C(:,i) = Cov ./ norm_P; % normalize component, beta, and back-projection coefficient
+                P = X*Cov; norm_P = sqrt(WT*P.^2); % this is the component and its weighted stdev
+                P = P ./ norm_P; B(i) = (normCov^2)/norm_P; C(:,i) = Cov ./ norm_P; % normalize component, beta, and back-projection coefficient
+                TPLSmdl.pctVar(i) = (B(i)^2)/WTY2; TPLSmdl.scoreCorr(i) = sqrt(TPLSmdl.pctVar(i));
                 
                 % Update the orthonormal basis with modified Gram Schmidt
                 vi = ((W.*P)'*X)'; % weighted covariance between X and current component
                 vi = vi - V(:,1:i-1)*(V(:,1:i-1)'*vi); % orthogonalize with regards to previous components
                 vi = vi ./ norm(vi); V(:,i) = vi; % normalize and add to orthonormal basis matrix
-                Cov = Cov - vi*(vi'*Cov); Cov = Cov - V(:,1:i)*(V(:,1:i)'*Cov); % Deflate Covariance using the orthonormal basis matrix
+                Cov = Cov - vi*(vi'*Cov); Cov = Cov - V(:,1:i)*(V(:,1:i)'*Cov); normCov = norm(Cov); % Deflate Covariance using the orthonormal basis matrix
                 
                 % back-projection
                 TPLSmdl.betamap(:,i) = C(:,1:i)*B(1:i); % back-projection of coefficients
                 sumC2 = sumC2+C(:,i).^2; P2(:,i) = P.^2; r = r - P*B(i); % some variables that will facilitate computation later
                 if i > 1 % no need to calculate threshold for first component
                     se = sqrt(P2(:,1:i)'*(W2.*(r.^2))); %Huber-White Sandwich estimator (assume no small T bias)
-                    TPLSmdl.threshmap(:,i) = abs((C(:,1:i)*(B(1:i)./se))./sqrt(sumC2)); % absolute value of back-projected z-statistics
+                    abszstat = abs((C(:,1:i)*(B(1:i)./se))./sqrt(sumC2)); % absolute value of back-projected z-statistics
+                    TPLSmdl.threshmap(:,i) = (v-tiedrank(abszstat))./v; % convert into thresholds between 0 and 1
+                end
+                
+                % check if there's enough covariance to milk
+                if normCov < 10*eps
+                    disp('All Covariance between X and Y has been explained. Stopping...'); break;
+                elseif TPLSmdl.pctVar(i) < 10*eps % Proportion of Y variance explained is small
+                    disp('New PLS component does not explain more covariance. Stopping...'); break;
                 end
             end
-            TPLSmdl.threshmap(:,2:end) = (v-tiedrank(TPLSmdl.threshmap(:,2:end)))./v; % convert into thresholds between 0 and 1
-            TPLSmdl.pctVar = B.^2 ./ WTY2; % Compute the percent of variance of Y each component explains
-            TPLSmdl.scoreCorr = sqrt(TPLSmdl.pctVar); % weighted correlation between Y and current component
         end
         
         function [betamap,bias] = makePredictor(TPLSmdl,compval,threshval)
@@ -115,7 +122,7 @@ assert(nC==1 && vC == 1,'NComp should be a scalar number');
 assert(nW==nY,'W and Y should have same number of rows');
 assert(vW==1,'W should be a column vector');
 [nn,vn] = size(nmc);
-assert(nn==1 && vn == 1,'NComp should be a scalar number');
+assert(nn==1 && vn == 1,'nmc should be a scalar number');
 
 % 3. nan checking
 assert(~any(isnan(X(:))),'NaN found in X');
@@ -125,6 +132,8 @@ assert(~any(isnan(W)),'NaN found in W');
 assert(~isnan(nmc),'nmc is NaN');
 
 % 4. logic checking
+assert( ~all(std(X)==0),'There is no variation in X')
+assert( std(Y)~=0,'There is no variation in Y')
 assert( floor(NComp)==NComp && ceil(NComp)==NComp,'NComp should be an integer')
 assert( all(W>0) ,'weights should be non-negative');
 assert( nmc==1 || nmc==0 ,'nmc switch should be either 0 or 1');
