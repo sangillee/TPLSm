@@ -25,7 +25,7 @@ classdef TPLS_cv %   Thresholded Partial Least Squares.
             TPLSinputchecker(Y,'Y','colvec',[],[],1)
             TPLSinputchecker(CVfold,'CVfold')
             TPLSinputchecker(NComp,'NComp','scalar',[],1,0,1)
-            TPLSinputchecker(W,'W','colvec',Inf,0)
+            TPLSinputchecker(W,'W','colvec',[],0)
             TPLSinputchecker(nmc,'nmc','scalar')
             assert(size(X,1)==length(Y) && size(X,1)==size(CVfold,1) && size(X,1) == length(W),'X, Y, W, and CV fold should have same number of rows');
             [TPLScvmdl.CVfold,TPLScvmdl.numfold] = prepCVfold(CVfold); % convert CVfold into matrix form, if not already

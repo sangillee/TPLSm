@@ -18,8 +18,8 @@ classdef TPLS
             if nargin<5, nmc = 0; end
             TPLSinputchecker(X,'X','mat',[],[],1); [n,v] = size(X);
             TPLSinputchecker(Y,'Y','colvec',[],[],1)
-            TPLSinputchecker(NComp,'NComp','scalar',[],[],0,1)
-            TPLSinputchecker(W,'W','colvec',Inf,0)
+            TPLSinputchecker(NComp,'NComp','scalar',[],1,0,1)
+            TPLSinputchecker(W,'W','colvec',[],0)
             TPLSinputchecker(nmc,'nmc','scalar')
             assert(n==length(Y) && n==length(W),'X, Y, and W should have equal number of rows')
             W = W./sum(W); % normalize weight sum to 1
@@ -37,7 +37,6 @@ classdef TPLS
             TPLSmdl.betamap = zeros(v,NComp); TPLSmdl.threshmap = 0.5.*ones(v,NComp); % output variables
             B = nan(NComp,1); P2 = nan(n,NComp); C = nan(v,NComp); sumC2 = zeros(v,1); r = Y; V = nan(v,NComp); % interim variables
             WYT = (W.*Y)'; WTY2 = W'*Y.^2; WT = W'; W2 = W.^2; % often-used variables in calculation
-            
             
             % perform Arthur-modified SIMPLS algorithm
             Cov = (WYT*X)'; normCov = norm(Cov); % weighted covariance
@@ -78,7 +77,7 @@ classdef TPLS
             %   'TPLSmdl'  : Object created by TPLS constructor function
             %   'compval'  : Vector of number of components to use in final predictor
             %                (e.g., [3,5] will give you two betamaps, one with 3 components and one with 5 components
-            %   'threshval': Single number of thresholding value to use in final predictor.
+            %   'threshval': Scalar thresholding value to use in final predictor.
             %                (e.g., 0.1 will yield betamap where only 10% of coefficients will be non-zero)
             TPLSinputchecker(compval,'compval','vec',TPLSmdl.NComp,1,0,1)
             TPLSinputchecker(threshval,'threshval','scalar',1,0)
@@ -96,7 +95,7 @@ classdef TPLS
             %   'TPLSmdl'  : Object created by TPLS constructor function
             %   'compval'  : Vector of number of components to use in final predictor
             %   'threshval': Single number of thresholding value to use in final predictor.
-            %   'testX'    : Data to be predicted
+            %   'testX'    : Data to be predicted. In same orientation as X
             TPLSinputchecker(testX,'testX')
             [threshbetamap,bias] = makePredictor(TPLSmdl,compval,threshval);
             score = bsxfun(@plus,bias,testX*threshbetamap);
