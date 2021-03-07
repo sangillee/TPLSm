@@ -104,6 +104,9 @@ heatmap(flipud(squeeze(mymap(:,15,:))'))
 
 %%%%%%%%%%%%%%%%%%% short version %%%%%%%%%%%%%%%%%%%%%%%%
 % in case you want a version of example that you can easily copy paste to your pipeline, here it is. 4 lines!
+clear
+clc
+load('TPLSdat.mat')
 cvmdl = TPLS_cv(X,Y,subj);
 cvstats = evalTuningParam(cvmdl,'AUC',X,Y,1:25,0:.05:1,run);
 mdl = TPLS(X,Y);

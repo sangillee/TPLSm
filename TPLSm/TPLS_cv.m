@@ -29,7 +29,7 @@ classdef TPLS_cv %   Thresholded Partial Least Squares.
             TPLSinputchecker(nmc,'nmc','scalar')
             assert(size(X,1)==length(Y) && size(X,1)==size(CVfold,1) && size(X,1) == length(W),'X, Y, W, and CV fold should have same number of rows');
             [TPLScvmdl.CVfold,TPLScvmdl.numfold] = prepCVfold(CVfold); % convert CVfold into matrix form, if not already
-            if size(W,2) == 1, W = repmat(W,1,numfold); end % convert into matrix form, if not already
+            if size(W,2) == 1, W = repmat(W,1,TPLScvmdl.numfold); end % convert into matrix form, if not already
             
             TPLScvmdl.NComp = NComp;
             TPLScvmdl.cvMdls = cell(TPLScvmdl.numfold,1);

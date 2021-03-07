@@ -7,7 +7,7 @@ if nargin < 3, type = []; end
 
 assert(all(isnumeric(input)),[name,' should be numeric']); % numeric check
 assert(~any(isnan(input(:))),['NaN found in ',name]); % nan check
-assert(~any(isfinite(input(:))),['Non finite value found in ',name]); % inf check
+assert(~any(~isfinite(input(:))),['Non finite value found in ',name]); % inf check
 
 if ~isempty(type)
     [n,v] = size(input);% size check
