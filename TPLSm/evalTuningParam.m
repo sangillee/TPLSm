@@ -11,7 +11,7 @@ classdef evalTuningParam
             %   'Y'         : The same Y as used in TPLS_cv.
             %   'compvec'   : Vector of number of components to test in cross-validation.
             %   'threshvec' : Vector of threshold level [0 1] to test in cross-validation.
-            %   'subfold'   : (Optional) Subdivision within testing fold to calculate performance. For example scan run division within subject.
+            %   'subfold'   : (Optional) vector of subdivision within testing fold to calculate performance. For example scan run division within subject.
             
             % input checking
             if nargin<7, subfold = ones(size(Y)); end
