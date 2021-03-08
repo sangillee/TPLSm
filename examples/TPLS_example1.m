@@ -1,6 +1,7 @@
-% TPLS_example.m
+% TPLS_example1.m
 % Written by Arthur 3/3/2021
 % this script shows how one can use T-PLS to build a whole-brain decoder
+% to see how to use T-PLS to assess CV performance, check example2
 % be sure to run line-by-line to follow along
 clear
 clc
