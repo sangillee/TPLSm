@@ -76,6 +76,8 @@ switch type
         binarycheck(testY)
         Perf = mean(testY==1.*(predmat>0.5),1);
     case 'AUC'
+        mintestY = min(testY); maxtestY = max(testY);
+        testY = (testY-mintestY)./(maxtestY-mintestY); % min max normalization
         binarycheck(testY)
         n = size(testY,1); num_pos = sum(testY==1); num_neg = n - num_pos;
         Perf = 0.5 .* ones(1,size(predmat,2));
