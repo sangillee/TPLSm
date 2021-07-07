@@ -16,7 +16,7 @@ classdef evalTuningParam
             % input checking
             if nargin<7, subfold = ones(size(Y)); end
             assert(isa(cvmdl,'TPLS_cv'),'First input should be a TPLS_cv model object');
-            assert(ismember(type,{'Pearson','Spearman','AUC','ACC','negMSE','negRMSE'}),'Unknown performance metric'); cvstats.type = type;
+            assert(ismember(type,{'Pearson','Spearman','AUC','ACC','negMSE','negRMSE','LL'}),'Unknown performance metric'); cvstats.type = type;
             TPLSinputchecker(X,'X','mat',[],[],1)
             TPLSinputchecker(Y,'Y','colvec',[],[],1)
             TPLSinputchecker(compvec,'compvec','vec',cvmdl.NComp,1,0,1); compvec = sort(compvec(:)); cvstats.compval = compvec;
@@ -84,6 +84,11 @@ switch type
         if (num_pos>0 && num_pos < n)
             ranks = tiedrank(predmat); Perf = ( sum(ranks(testY==1,:),1) - num_pos * (num_pos+1)/2) / ( num_pos * num_neg);
         end
+    case 'LL'
+        binarycheck(testY)
+        predmat(testY~=1,:) = 1-predmat(testY~=1,:); % flip probability
+        predmat(predmat>1) = 1; predmat(predmat<=0) = realmin; % take care of probability predictions outside of range
+        Perf = mean(log(predmat));
     case 'Pearson'
         Perf = corr(testY,predmat,'type',type);
     case 'Spearman'
