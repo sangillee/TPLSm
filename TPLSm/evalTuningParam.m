@@ -6,7 +6,7 @@ classdef evalTuningParam
         function cvstats = evalTuningParam(cvmdl,type,X,Y,compvec,threshvec,subfold)
             % Evaluating cross-validation performance of a TPLS_cv model at compvec and threshvec
             %   'cvmdl'     : A TPLS_cv object
-            %   'type'      : CV performance metric type. One of Pearson, Spearman, AUC, ACC, negMSE, negRMSE.
+            %   'type'      : CV performance metric type. One of LLbinary, negMSE, Pearson, Spearman, AUC, ACC.
             %   'X'         : The same X as used in TPLS_cv.
             %   'Y'         : The same Y as used in TPLS_cv.
             %   'compvec'   : Vector of number of components to test in cross-validation.
@@ -16,7 +16,7 @@ classdef evalTuningParam
             % input checking
             if nargin<7, subfold = ones(size(Y)); end
             assert(isa(cvmdl,'TPLS_cv'),'First input should be a TPLS_cv model object');
-            assert(ismember(type,{'Pearson','Spearman','AUC','ACC','negMSE','negRMSE','LL'}),'Unknown performance metric'); cvstats.type = type;
+            assert(ismember(type,{'LLbinary','negMSE','Pearson','Spearman','AUC','ACC'}),'Unknown performance metric'); cvstats.type = type;
             TPLSinputchecker(X,'X','mat',[],[],1)
             TPLSinputchecker(Y,'Y','colvec',[],[],1)
             TPLSinputchecker(compvec,'compvec','vec',cvmdl.NComp,1,0,1); compvec = sort(compvec(:)); cvstats.compval = compvec;
@@ -68,27 +68,23 @@ end
 
 function Perf = util_perfmetric(predmat,testY,type)
 switch type
+    case 'LLbinary'
+        assert(binarycheck(testY)==1,'LL binary can be only calculated for binary measures')
+        predmat(testY~=1,:) = 1-predmat(testY~=1,:); % flip probability
+        predmat(predmat>1) = 1; predmat(predmat<=0) = realmin; % take care of probability predictions outside of range
+        Perf = mean(log(predmat),1); % taking the mean so that we have per-trial average LL, which would make each fold count equally (not weighted by number of trials)
     case 'negMSE'
         Perf = -mean((predmat-testY).^2,1);
-    case 'negRMSE'
-        Perf = -sqrt(mean((predmat-testY).^2,1));
     case 'ACC'
-        binarycheck(testY)
+        assert(binarycheck(testY)==1,'Accuracy can be only calculated for binary measures')
         Perf = mean(testY==1.*(predmat>0.5),1);
     case 'AUC'
-        mintestY = min(testY); maxtestY = max(testY);
-        testY = (testY-mintestY)./(maxtestY-mintestY); % min max normalization
-        binarycheck(testY)
+        assert(binarycheck(testY)==1,'AUC can be only calculated for binary measures')
         n = size(testY,1); num_pos = sum(testY==1); num_neg = n - num_pos;
         Perf = 0.5 .* ones(1,size(predmat,2));
         if (num_pos>0 && num_pos < n)
             ranks = tiedrank(predmat); Perf = ( sum(ranks(testY==1,:),1) - num_pos * (num_pos+1)/2) / ( num_pos * num_neg);
         end
-    case 'LL'
-        binarycheck(testY)
-        predmat(testY~=1,:) = 1-predmat(testY~=1,:); % flip probability
-        predmat(predmat>1) = 1; predmat(predmat<=0) = realmin; % take care of probability predictions outside of range
-        Perf = mean(log(predmat));
     case 'Pearson'
         Perf = corr(testY,predmat,'type',type);
     case 'Spearman'
@@ -96,14 +92,10 @@ switch type
 end
 end
 
-function binarycheck(Y)
-uniqueY = unique(Y);
-if length(uniqueY) > 2
-    disp(uniqueY)
-    error('non-binary Y detected')
-end
+function out = binarycheck(Y)
 if any(Y~=0 & Y~=1)
-    disp(uniqueY)
-    error('Y element is not 0 or 1')
+    out = 0;
+else
+    out = 1;
 end
 end
