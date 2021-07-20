@@ -1,6 +1,6 @@
 classdef TPLS
     properties
-        NComp, MX, MY, scoreCorr, pctVar, betamap, threshmap
+        NComp, MX, MY, scoreCorr, pctVar, betamap, threshmap, zmap
     end
     methods
         function TPLSmdl = TPLS(X,Y,NComp,W,nmc)
@@ -34,7 +34,7 @@ classdef TPLS
             
             % allocate memories
             TPLSmdl.pctVar = nan(NComp,1); TPLSmdl.scoreCorr = nan(NComp,1); % percent of variance of Y each component explains, weighted correlation between Y and current component
-            TPLSmdl.betamap = zeros(v,NComp); TPLSmdl.threshmap = 0.5.*ones(v,NComp); % output variables
+            TPLSmdl.betamap = zeros(v,NComp); TPLSmdl.threshmap = 0.5.*ones(v,NComp); TPLSmdl.zmap = zeros(v,NComp); % output variables
             B = nan(NComp,1); P2 = nan(n,NComp); C = nan(v,NComp); sumC2 = zeros(v,1); r = Y; V = nan(v,NComp); % interim variables
             WYT = (W.*Y)'; WTY2 = W'*Y.^2; WT = W'; W2 = W.^2; % often-used variables in calculation
             
@@ -57,8 +57,8 @@ classdef TPLS
                 sumC2 = sumC2+C(:,i).^2; P2(:,i) = P.^2; r = r - P*B(i); % some variables that will facilitate computation later
                 if i > 1 % no need to calculate threshold for first component
                     se = sqrt(P2(:,1:i)'*(W2.*(r.^2))); %Huber-White Sandwich estimator (assume no small T bias)
-                    abszstat = abs((C(:,1:i)*(B(1:i)./se))./sqrt(sumC2)); % absolute value of back-projected z-statistics
-                    TPLSmdl.threshmap(:,i) = (v-tiedrank(abszstat))./v; % convert into thresholds between 0 and 1
+                    TPLSmdl.zmap(:,i) = (C(:,1:i)*(B(1:i)./se))./sqrt(sumC2); % back-projected z-statistics
+                    TPLSmdl.threshmap(:,i) = (v-tiedrank(abs(TPLSmdl.zmap(:,i))))./v; % convert into thresholds between 0 and 1
                 end
                 
                 % check if there's enough covariance to milk
