@@ -1,3 +1,9 @@
+# TPLSm 1.0.3
+
+Updated June 6th 2022
+
+Finalized update including citations to the publication.
+
 # TPLSm 1.0.2
 
 Updated March 6th 2021

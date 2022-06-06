@@ -1,6 +1,6 @@
-# TPLSm 1.0.2
+# TPLSm 1.0.3
 
-Updated March 6th 2021
+Updated June 6th 2022
 
 MATLAB package for performing Thresholded Partial Least Squares (T-PLS). T-PLS combines partial least squares with back-projection and thresholding to fit a large scale regularized linear model. Due to its mostly analytical solutions and 'fit once tune later' approach to cross-validation, it can fit cross-validated model on big data (both large n & p) in very short time.
 
@@ -11,4 +11,4 @@ The folder 'examples' contains example MATLAB script and data to show how to use
 
 
 Citation:
-Lee, S., Bradlow, E. T., & Kable, J. W. (2021). Thresholded Partial Least Squares: Fast Construction of Interpretable Whole-brain Decoders. BioRXiv.
+Lee, S., Bradlow, E. T., & Kable, J. W. (2022). Fast Construction of Interpretable Whole-brain Decoders. Cell Reports Methods.
