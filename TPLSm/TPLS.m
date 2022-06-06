@@ -8,7 +8,7 @@ classdef TPLS
             %   'X'    : Numerical matrix of predictors. Typically single-trial betas where each column is a voxel and row is observation
             %   'Y'    : Variable to predict. Binary 0 and 1 in case of classification, continuous variable in case of regression
             %   'NComp': (Optional) Number of PLS components to compute. Default is 25.
-            %   'W'    : (Optional) Observation weights. Optional input. By default, all observations have equal weight.
+            %   'W'    : (Optional) Observation weights. By default, all observations have equal weight.
             %   'nmc'  : (Optional) 'no mean centering'. Default is 0. If 1, T-PLS will skip mean-centering.
             %            This option is only provided in case you already mean-centered the data and want to save some memory usage.
             
@@ -36,10 +36,10 @@ classdef TPLS
             TPLSmdl.pctVar = nan(NComp,1); TPLSmdl.scoreCorr = nan(NComp,1); % percent of variance of Y each component explains, weighted correlation between Y and current component
             TPLSmdl.betamap = zeros(v,NComp); TPLSmdl.threshmap = 0.5.*ones(v,NComp); TPLSmdl.zmap = zeros(v,NComp); % output variables
             B = nan(NComp,1); P2 = nan(n,NComp); C = nan(v,NComp); sumC2 = zeros(v,1); r = Y; V = nan(v,NComp); % interim variables
-            WYT = (W.*Y)'; WTY2 = W'*Y.^2; WT = W'; W2 = W.^2; % often-used variables in calculation
+            WT = W'; WTY2 = WT*Y.^2; W2 = W.^2; % often-used variables in calculation
             
             % perform Arthur-modified SIMPLS algorithm
-            Cov = (WYT*X)'; normCov = norm(Cov); % weighted covariance
+            Cov = ((W.*Y)'*X)'; normCov = norm(Cov); % weighted covariance
             for i = 1:NComp
                 disp(['Calculating Comp #',num2str(i)])
                 P = X*Cov; norm_P = sqrt(WT*P.^2); % this is the component and its weighted stdev

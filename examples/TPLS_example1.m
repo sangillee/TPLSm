@@ -22,7 +22,7 @@ sum(mask(:))
 % hopefully, when we create whole-brain predictor, we should be able to see left and right motor areas
 
 % subj is a numerical variable that tells us the subject number that each observation belongs to.
-% In this dataset, there are only 3 datasets.
+% In this dataset, there are only 3 subjects.
 % run is a numerical variable that tells us the scanner run that each observation belongs to.
 % In this dataset, each of the 3 subjects had 8 scan runs.
 
@@ -85,6 +85,13 @@ sum(betamap~=0)
 prediction = X * betamap;
 corr(prediction,Y) % 0.63 correlation! In-sample though so not that impressive
 scatter(prediction,Y)
+
+% you can also use the built-in function for prediction as well
+prediction = predict(mdl,compval,threshval,X);
+
+% if you use the built-in prediction function, it will also add the bias(intercept) to your prediction.
+% this may or may not be useful to you since fMRI data is unitless. But, if you're trying to access accuracy
+% you would want to incorporate the bias so that you can interpret the prediction as a probability
 
 % now let's look at the resulting whole-brain predictor
 mymap = mask;
