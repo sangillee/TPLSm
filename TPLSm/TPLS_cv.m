@@ -53,7 +53,7 @@ if size(inCVfold,2) == 1 % vector
 elseif size(inCVfold,2) > 1 % matrix
     nfold = size(inCVfold,2); CVfold = inCVfold;
     if any(CVfold(:)~=0 & CVfold(:)~=1)
-        error('Non-binary element is matrix form CVfold. Perhaps you meant to use vector form?')
+        error('Non-binary element in matrix form CVfold. Perhaps you meant to use vector form?')
     end
 else
     error('unexpected size of CVfold')

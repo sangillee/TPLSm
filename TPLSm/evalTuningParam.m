@@ -23,7 +23,7 @@ classdef evalTuningParam
             TPLSinputchecker(threshvec,'threshvec','vec',1,0); threshvec = sort(threshvec(:)); cvstats.threshval = threshvec;
             TPLSinputchecker(subfold,'subfold','vec')
             
-            % Perform CV prediction and performance measurement
+            % Perform CV prediction and measure performance
             perfmat = nan(length(compvec),length(threshvec),cvmdl.numfold);
             for i = 1:cvmdl.numfold
                 disp(['Fold #',num2str(i)])
