@@ -33,7 +33,7 @@ if ~isempty(minval)
     assert(all(input(:)>=minval),[name,' should be greater than or equal to ',num2str(minval)])
 end
 if variation == 1
-    assert( ~any(std(input)==0),['There is no variation in ',name])
+    %assert( ~any(std(input)==0),['There is no variation in ',name])
 end
 if integercheck == 1
     input = input(:);

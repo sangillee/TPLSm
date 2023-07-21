@@ -1,6 +1,6 @@
 classdef TPLS
     properties
-        NComp, MX, MY, scoreCorr, pctVar, betamap, threshmap, zmap
+        NComp, MX, MY, scoreCorr, pctVar, betamap, threshmap, zmap, backprojector
     end
     methods
         function TPLSmdl = TPLS(X,Y,NComp,W,nmc)
@@ -55,7 +55,9 @@ classdef TPLS
                 % back-projection
                 TPLSmdl.betamap(:,i) = C(:,1:i)*B(1:i); % back-projection of coefficients
                 sumC2 = sumC2+C(:,i).^2; P2(:,i) = P.^2; r = r - P*B(i); % some variables that will facilitate computation later
-                if i > 1 % no need to calculate threshold for first component
+                if i == 1
+                    TPLSmdl.threshmap(:,i) = (v-tiedrank(abs(TPLSmdl.betamap(:,i))))./v; % convert into thresholds between 0 and 1
+                else
                     se = sqrt(P2(:,1:i)'*(W2.*(r.^2))); %Huber-White Sandwich estimator (assume no small T bias)
                     TPLSmdl.zmap(:,i) = (C(:,1:i)*(B(1:i)./se))./sqrt(sumC2); % back-projected z-statistics
                     TPLSmdl.threshmap(:,i) = (v-tiedrank(abs(TPLSmdl.zmap(:,i))))./v; % convert into thresholds between 0 and 1
@@ -68,6 +70,7 @@ classdef TPLS
                     disp('New PLS component does not explain more covariance. Stopping...'); break;
                 end
             end
+            TPLSmdl.backprojector = C; % coeff map of each component, rather than the summed map which is 'betamap'
         end
         
         function [betamap,bias] = makePredictor(TPLSmdl,compval,threshval)
