@@ -6,7 +6,7 @@ classdef evalTuningParam
         function cvstats = evalTuningParam(cvmdl,type,X,Y,compvec,threshvec,subfold)
             % Evaluating cross-validation performance of a TPLS_cv model at compvec and threshvec
             %   'cvmdl'     : A TPLS_cv object
-            %   'type'      : CV performance metric type. One of LLbinary, negMSE, Pearson, Spearman, AUC, ACC.
+            %   'type'      : CV performance metric type. One of SepDist, negMSE, Pearson, Spearman, AUC, ACC.
             %   'X'         : The same X as used in TPLS_cv.
             %   'Y'         : The same Y as used in TPLS_cv.
             %   'compvec'   : Vector of number of components to test in cross-validation.
@@ -16,7 +16,7 @@ classdef evalTuningParam
             % input checking
             if nargin<7, subfold = ones(size(Y)); end
             assert(isa(cvmdl,'TPLS_cv'),'First input should be a TPLS_cv model object');
-            assert(ismember(type,{'LLbinary','negMSE','Pearson','Spearman','AUC','ACC'}),'Unknown performance metric'); cvstats.type = type;
+            assert(ismember(type,{'SepDist','negMSE','Pearson','Spearman','AUC','ACC'}),'Unknown performance metric'); cvstats.type = type;
             TPLSinputchecker(X,'X','mat',[],[],1)
             TPLSinputchecker(Y,'Y','colvec',[],[],1)
             TPLSinputchecker(compvec,'compvec','vec',cvmdl.NComp,1,0,1); compvec = sort(compvec(:)); cvstats.compval = compvec;
@@ -41,7 +41,8 @@ classdef evalTuningParam
                     perfmat(:,j,i) = nanmean(smallperfmat,2);
                 end
             end
-            cvstats.perfmat = perfmat; avgperfmat = nanmean(perfmat,3); % mean performance
+            cvstats.perfmat = perfmat;
+            avgperfmat = nanmean(perfmat,3); % mean performance
             cvstats.perf_best = max(avgperfmat(:)); % best mean performance
             [row_best,col_best] = find(avgperfmat==cvstats.perf_best,1,'first'); % coordinates of best point
             cvstats.compval_best = compvec(row_best); cvstats.threshval_best = threshvec(col_best); % component and threshold of best point
@@ -68,11 +69,9 @@ end
 
 function Perf = util_perfmetric(predmat,testY,type)
 switch type
-    case 'LLbinary'
+    case 'SepDist'
         assert(binarycheck(testY)==1,'LL binary can be only calculated for binary measures')
-        predmat(testY~=1,:) = 1-predmat(testY~=1,:); % flip probability
-        predmat(predmat>1) = 1; predmat(predmat<=0) = realmin; % take care of probability predictions outside of range
-        Perf = mean(log(predmat),1); % taking the mean so that we have per-trial average LL, which would make each fold count equally (not weighted by number of trials)
+        Perf = mean(predmat(testY==1,:),1) - mean(predmat(testY==0,:),1); % mean separation
     case 'negMSE'
         Perf = -mean((predmat-testY).^2,1);
     case 'ACC'
